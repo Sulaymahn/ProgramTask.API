@@ -1,3 +1,7 @@
+using Microsoft.EntityFrameworkCore;
+using ProgramTask.API.Data;
+using ProgramTask.API.Interfaces;
+using ProgramTask.API.Services;
 
 namespace ProgramTask.API
 {
@@ -7,16 +11,22 @@ namespace ProgramTask.API
         {
             var builder = WebApplication.CreateBuilder(args);
 
-            // Add services to the container.
-
             builder.Services.AddControllers();
-            // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen();
+            builder.Services.AddDbContext<ApplicationDbContext>(opt =>
+            {
+                opt.EnableSensitiveDataLogging();
+                opt.UseCosmos(
+                    connectionString: builder.Configuration.GetConnectionString("CosmosDb")!,
+                    databaseName: "ProgramTaskApp");
+            });
+            builder.Services.AddScoped<IJobProgramRepository, JobProgramRepository>();
+            builder.Services.AddScoped<IQuestionRepository, QuestionRepository>();
+            builder.Services.AddScoped<ICandidateApplicationRepository, CandidateApplicationRepository>();
 
             var app = builder.Build();
 
-            // Configure the HTTP request pipeline.
             if (app.Environment.IsDevelopment())
             {
                 app.UseSwagger();
@@ -27,8 +37,15 @@ namespace ProgramTask.API
 
             app.UseAuthorization();
 
-
             app.MapControllers();
+
+            var d = app.Services.CreateScope()
+                .ServiceProvider
+                .GetRequiredService<ApplicationDbContext>()
+                .Database;
+
+            d.EnsureDeleted();
+            d.EnsureCreated();
 
             app.Run();
         }
